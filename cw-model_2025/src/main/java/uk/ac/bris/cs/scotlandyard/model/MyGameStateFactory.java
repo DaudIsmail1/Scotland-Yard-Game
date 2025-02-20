@@ -18,7 +18,7 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			Player mrX,
 			ImmutableList<Player> detectives) {
 		// TODO
-		throw new RuntimeException("Implement me!");
+		throw new RuntimeException("Hello");
 
 	}
 
