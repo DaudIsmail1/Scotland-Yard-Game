@@ -11,9 +11,9 @@ import uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Factory;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 
-import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket.DOUBLE;
-import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket.TAXI;
+import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket.*;
 
 /**
  * cw-model
@@ -48,10 +48,13 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
 			if(detectives.isEmpty()) throw new NullPointerException("Detectives is empty!");
 			if(isDetectivesDouble()) throw new IllegalArgumentException("Detectives must be have double tickets!");
-//			if (setup.graph.isEmpty()) throw new IllegalArgumentException("Graph is empty!");
+			if(isDetectivesSecret()) throw new IllegalArgumentException("Detectives must be have secret tickets!");
+			if(setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph is empty!");
+			if(isDetectivesLocation()) throw new IllegalArgumentException("Detectives are overlapping");
+			if(mrX == null) throw new NullPointerException(" There is no MrX!");
 //
 
-			
+
 		}
 		public boolean isDetectivesDouble() {
 			for (Player player : detectives) {
@@ -60,23 +63,67 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			return false;
 		}
 
+		public boolean isDetectivesSecret(){
+			for (Player player : detectives) {
+				if(player.has(SECRET)) return true;
+			}
+			return false;
+		}
 
-		@Override public GameSetup getSetup() {  return null; }
+		public boolean isDetectivesLocation(){
+			for (int i = 0; i < detectives.size(); i++) {
+				for (int j = i + 1; j < detectives.size(); j++) {
+					if(Objects.equals(detectives.get(i).location(), detectives.get(j).location()))
+						return true;
+				}
+			}
+			return false;
+		}
 
-		@Override  public ImmutableSet<Piece> getPlayers() { return null; }
+
+
+		@Override public GameSetup getSetup() {  return setup; }
+
+		@Override  public ImmutableSet<Piece> getPlayers() {
+			return ImmutableSet.<Piece>builder()
+					.addAll(remaining)
+					.addAll(detectives.stream().map(player -> player.piece()).toList())
+					.build();
+
+		 }
 
 		@Nonnull
 		@Override
 		public Optional<Integer> getDetectiveLocation(Piece.Detective detective) {
+			for (Player player : detectives) {
+				if ((player.piece()) == detective)
+					return Optional.of(player.location());
+			}
 			return Optional.empty();
 		}
 
 		@Nonnull
 		@Override
 		public Optional<TicketBoard> getPlayerTickets(Piece piece) {
-			return Optional.empty();
-		}
-
+			if(mrX.piece() == piece) {
+				return Optional.of(new TicketBoard() {
+					@Override
+					public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
+						return mrX.tickets().getOrDefault(ticket, 0);
+					}
+				});
+			}
+			for (Player player : detectives) {
+				if ((player.piece()) == piece)
+					return Optional.of(new TicketBoard() {
+							@Override
+							public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
+								return player.tickets().getOrDefault(ticket, 0);
+							}
+						});
+				    }
+			    return Optional.empty();
+        }
 		@Nonnull
 		@Override
 		public ImmutableList<LogEntry> getMrXTravelLog() {
@@ -92,7 +139,10 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		@Nonnull
 		@Override
 		public ImmutableSet<Move> getAvailableMoves() {
-			return null;
+			for (Player player : detectives) {
+				if(player.tickets().isEmpty()) return ImmutableSet.of();
+			};
+          return getAvailableMoves();
 		}
 
 		@Override public GameState advance(Move move) {  return null;  }
