@@ -115,7 +115,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					}
 				}
 			}
-			// TODO return the collection of moves
 			return moves;
 		}
 		private  Set<Move.SingleMove> generateDetectiveMoves (List<Player> detectives) {
@@ -147,8 +146,16 @@ public final class MyGameStateFactory implements Factory<GameState> {
 					for(int destination2 : setup.graph.adjacentNodes(destination1)) {
 						if (destinations.contains(destination2)) continue;
 						for (ScotlandYard.Transport t2 : setup.graph.edgeValueOrDefault(destination1, destination2, ImmutableSet.of())){
-							if(player.isMrX() && player.has(t1.requiredTicket()) && player.has(t2.requiredTicket())){
-								moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+							if(player.isMrX()){
+								if(t1.requiredTicket().equals(t2.requiredTicket())){
+									if(player.hasAtLeast(t1.requiredTicket(), 2)){
+										moves.add(new Move.DoubleMove(player.piece(),player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+									}
+								} else {
+									if (player.has(t1.requiredTicket()) && player.has(t2.requiredTicket())){
+										moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+									}
+								}
 							}
 							if(player.isMrX() && player.has(t1.requiredTicket()) && player.has(SECRET)){
 								moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, SECRET, destination2));
@@ -161,13 +168,8 @@ public final class MyGameStateFactory implements Factory<GameState> {
 							}
 						}
 					}
-
-
-					// TODO consider the rules of secret moves here
-					//  add moves to the destination via a secret ticket if there are any left with the player
 				}
 			}
-			// TODO return the collection of moves
 			return moves;
 		}
 
