@@ -42,11 +42,11 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			this.detectives = detectives;
 			this.moves = ImmutableSet.of();
 			this.winner = ImmutableSet.of();
+			Set<Move.DoubleMove> mrXDoubleMoves = makeDoubleMoves(setup, detectives, mrX, mrX.location());
 			Set<Move.SingleMove> mrXSingleMoves = makeSingleMoves(setup, detectives, mrX, mrX.location());
 			Set<Move.SingleMove> detectiveSingleMoves = generateDetectiveMoves(detectives);
-//			Set<Move.DoubleMove> mrXDoubleMoves = makeDoubleMoves(setup, detectives, mrX, mrX.location());
 			ImmutableSet.Builder<Move> builder = ImmutableSet.builder();
-			moves = builder.addAll(mrXSingleMoves).addAll(detectiveSingleMoves).build();
+			moves = builder.addAll(mrXSingleMoves).addAll(detectiveSingleMoves).addAll(mrXDoubleMoves).build();
 
 
 			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
@@ -55,8 +55,6 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			if(isDetectivesSecret()) throw new IllegalArgumentException("Detectives must be have secret tickets!");
 			if(setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph is empty!");
 			if(isDetectivesLocation()) throw new IllegalArgumentException("Detectives are overlapping");
-			if(mrX == null) throw new NullPointerException(" There is no MrX!");
-//
 
 
 		}
@@ -100,29 +98,23 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				for(ScotlandYard.Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
 						// TODO find out if the player has the required tickets
 						//  if it does, construct a SingleMove and add it the collection of moves to return
-						  if (player.isMrX()){
-							  source = player.location();
-							if(player.has(t.requiredTicket())){
-								moves.add(new Move.SingleMove(player.piece(),source, t.requiredTicket(), destination));
-							}
-						  }
+					if (player.isMrX()){
+						if(player.has(t.requiredTicket())){
+							moves.add(new Move.SingleMove(player.piece(),source, t.requiredTicket(), destination));
+						}
+					}
 						// TODO consider the rules of secret moves here
 						//  add moves to the destination via a secret ticket if there are any left with the player
-						  if (player.isMrX()){
-							if (player.has(SECRET)){
-								moves.add(new Move.SingleMove(player.piece(), mrX.location(), SECRET, destination));
-							}
-							if (player.isDetective()){
-								if (remaining.contains(player.piece())){
-									moves.add(new Move.SingleMove(player.piece(),player.location(), t.requiredTicket(), destination));
-								}
-							  }
+					if (player.isMrX() && player.has(SECRET)){
+						moves.add(new Move.SingleMove(player.piece(), player.location(), SECRET, destination));
+					}
+					if (player.isDetective()){
+						if (remaining.contains(player.piece())){
+							moves.add(new Move.SingleMove(player.piece(),player.location(), t.requiredTicket(), destination));
 						}
-				      }
-				//}
-
+					}
+				}
 			}
-
 			// TODO return the collection of moves
 			return moves;
 		}
@@ -133,6 +125,52 @@ public final class MyGameStateFactory implements Factory<GameState> {
 			}
 			return detectiveMoves;
 		}
+
+		private Set<Move.DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
+
+			// TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
+			HashSet<Move.DoubleMove> moves = new HashSet<>();
+			HashSet<Integer> destinations = new HashSet<>();
+			for (Player detective : detectives) {
+				destinations.add(detective.location());
+			}
+
+			for(int destination1 : setup.graph.adjacentNodes(source)) {
+				// TODO find out if destination is occupied by a detective
+				//  if the location is occupied, don't add to the collection of moves to return
+				if (!player.isMrX() || !player.has(DOUBLE) || setup.moves.size() - log.size() < 2) continue;
+				if(destinations.contains(destination1)) continue;
+				for(ScotlandYard.Transport t1 : setup.graph.edgeValueOrDefault(source, destination1, ImmutableSet.of()) ) {
+					// TODO find out if the player has the required tickets
+					//  if it does, construct a SingleMove and add it the collection of moves to return
+					if (player.isMrX() && (!player.has(t1.requiredTicket()) && (!player.has(SECRET)))) continue;
+					for(int destination2 : setup.graph.adjacentNodes(destination1)) {
+						if (destinations.contains(destination2)) continue;
+						for (ScotlandYard.Transport t2 : setup.graph.edgeValueOrDefault(destination1, destination2, ImmutableSet.of())){
+							if(player.isMrX() && player.has(t1.requiredTicket()) && player.has(t2.requiredTicket())){
+								moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+							}
+							if(player.isMrX() && player.has(t1.requiredTicket()) && player.has(SECRET)){
+								moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, SECRET, destination2));
+							}
+							if(player.isMrX() && player.has(t2.requiredTicket()) && player.has(SECRET)){
+								moves.add(new Move.DoubleMove(player.piece(), player.location(),SECRET, destination1, t2.requiredTicket(), destination2));
+							}
+							if(player.isMrX() && player.hasAtLeast(SECRET, 2)){
+								moves.add(new Move.DoubleMove(player.piece(), player.location(),SECRET, destination1, SECRET, destination2));
+							}
+						}
+					}
+
+
+					// TODO consider the rules of secret moves here
+					//  add moves to the destination via a secret ticket if there are any left with the player
+				}
+			}
+			// TODO return the collection of moves
+			return moves;
+		}
+
 
 		@Override public GameSetup getSetup() {  return setup; }
 
@@ -195,12 +233,14 @@ public final class MyGameStateFactory implements Factory<GameState> {
 		}
 
 		@Override public GameState advance(Move move) {
-			if(!moves.contains(move)) throw new IllegalArgumentException("Illegal move: "+move);
-
-			var v = move.accept(new Move.Visitor<GameState>() {
+			if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
+			return move.accept(new Move.Visitor<GameState>() {
 
 				@Override
 				public GameState visit(Move.SingleMove move) {
+					if (move.commencedBy().equals(mrX.piece())){
+
+					}
 					return null;
 				}
 
@@ -208,19 +248,9 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				public GameState visit(Move.DoubleMove move) {
 					return null;
 				}
-
 			});
-
-
-
-
-
-			return null;  }
-
-
-
+		}
 	}
-
 
 	@Nonnull @Override public GameState build(
 			GameSetup setup,
