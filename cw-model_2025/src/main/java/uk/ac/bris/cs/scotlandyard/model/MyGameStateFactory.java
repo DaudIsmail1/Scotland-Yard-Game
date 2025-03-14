@@ -241,7 +241,40 @@ public final class MyGameStateFactory implements Factory<GameState> {
 				@Override
 				public GameState visit(Move.SingleMove move) {
 					if (move.commencedBy().equals(mrX.piece())){
+						// Update travel log for reveal and hidden
+						//
+						// Use ticket
+						Player updatedMrX = mrX.use(move.ticket);
+						// Move mrX to new destination
+						updatedMrX = new Player(updatedMrX.piece(), updatedMrX.tickets(), move.destination);
+						// swap to detective turn
+						return new MyGameState(setup, remaining, log, updatedMrX, detectives);
+					}
+					for(Player player : detectives) {
+						if(move.commencedBy().equals(player.piece())){
+							// Use ticket
+							Player updatedDetective = player.use(move.ticket);
+							// Move detective to new destination
+							updatedDetective = new Player(updatedDetective.piece(), updatedDetective.tickets(), move.destination);
+							// Give ticket to mrX
+							mrX = mrX.give(move.ticket);
+							// remove detective from remaining
+							Set<Piece> updatedRemaining = new HashSet<>(remaining);
+							updatedRemaining.remove(move.commencedBy());
+							if (updatedRemaining.isEmpty()) {
+								updatedRemaining.add(mrX.piece());
+							}else {
+								for(Piece piece : updatedRemaining ) {
+									if(updatedRemaining.contains(piece)){
+										updatedRemaining.addAll(makeSingleMoves(setup, ))
+									}
 
+								}
+							}
+							// when all detective move change to mrX turn
+
+							return new MyGameState(setup, updatedRemaining, log, mrX, detectives );
+						}
 					}
 					return null;
 				}
