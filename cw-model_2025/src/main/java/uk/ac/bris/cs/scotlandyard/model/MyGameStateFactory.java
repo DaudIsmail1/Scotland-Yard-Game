@@ -18,357 +18,366 @@ import static uk.ac.bris.cs.scotlandyard.model.ScotlandYard.Ticket.*;
  * Stage 1: Complete this class
  */
 public final class MyGameStateFactory implements Factory<GameState> {
-	private final class MyGameState implements GameState {
-		private GameSetup setup;
-		private ImmutableSet<Piece> remaining;
-		private ImmutableList<LogEntry> log;
-		private Player mrX;
-		private List<Player> detectives;
-		private ImmutableSet<Move> moves;
-		private ImmutableSet<Piece> winner;
+    private final class MyGameState implements GameState {
+        private GameSetup setup;
+        private ImmutableSet<Piece> remaining;
+        private ImmutableList<LogEntry> log;
+        private Player mrX;
+        private List<Player> detectives;
+        private ImmutableSet<Move> moves;
+        private ImmutableSet<Piece> winner;
 
 
-		private MyGameState(
-				final GameSetup setup,
-				final ImmutableSet<Piece> remaining,
-				final ImmutableList<LogEntry> log,
-				final Player mrX,
-				final List<Player> detectives)
-		{
-			this.setup = setup;
-			this.remaining = remaining;
-			this.log = log;
-			this.mrX = mrX;
-			this.detectives = detectives;
-			this.moves = ImmutableSet.of();
-			this.winner = ImmutableSet.of();
-			Set<Move.DoubleMove> mrXDoubleMoves = makeDoubleMoves(setup, detectives, mrX, mrX.location());
-			Set<Move.SingleMove> mrXSingleMoves = makeSingleMoves(setup, detectives, mrX, mrX.location());
-		    ImmutableSet.Builder<Move> builder = ImmutableSet.builder();
-			for (Player detective : detectives) {
-				if (remaining.contains(detective.piece())) {
-				Set<Move.SingleMove> detectiveSingleMoves = generateDetectiveMoves(setup, detectives, detective, detective.location());
-				builder.addAll(detectiveSingleMoves);
-		     	}
-			}
-			if(remaining.contains(mrX.piece())) {
-				 builder.addAll(mrXSingleMoves).addAll(mrXDoubleMoves).build();
-			}
-			moves = builder.build();
+        private MyGameState(
+                final GameSetup setup,
+                final ImmutableSet<Piece> remaining,
+                final ImmutableList<LogEntry> log,
+                final Player mrX,
+                final List<Player> detectives) {
+            this.setup = setup;
+            this.remaining = remaining;
+            this.log = log;
+            this.mrX = mrX;
+            this.detectives = detectives;
+            this.moves = ImmutableSet.of();
+            this.winner = ImmutableSet.of();
+            Set<Move.DoubleMove> mrXDoubleMoves = makeDoubleMoves(setup, detectives, mrX, mrX.location());
+            Set<Move.SingleMove> mrXSingleMoves = makeSingleMoves(setup, detectives, mrX, mrX.location());
+            ImmutableSet.Builder<Move> builder = ImmutableSet.builder();
+            for (Player detective : detectives) {
+                if (remaining.contains(detective.piece())) {
+                    Set<Move.SingleMove> detectiveSingleMoves = generateDetectiveMoves(setup, detectives, detective, detective.location());
+                    builder.addAll(detectiveSingleMoves);
+                }
+            }
+            if (remaining.contains(mrX.piece())) {
+                builder.addAll(mrXSingleMoves).addAll(mrXDoubleMoves).build();
+            }
+            moves = builder.build();
 
 
-			if(setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
-			if(detectives.isEmpty()) throw new NullPointerException("Detectives is empty!");
-			if(isDetectivesDouble()) throw new IllegalArgumentException("Detectives must be have double tickets!");
-			if(isDetectivesSecret()) throw new IllegalArgumentException("Detectives must be have secret tickets!");
-			if(setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph is empty!");
-			if(isDetectivesLocation()) throw new IllegalArgumentException("Detectives are overlapping");
+            if (setup.moves.isEmpty()) throw new IllegalArgumentException("Moves is empty!");
+            if (detectives.isEmpty()) throw new NullPointerException("Detectives is empty!");
+            if (isDetectivesDouble()) throw new IllegalArgumentException("Detectives must be have double tickets!");
+            if (isDetectivesSecret()) throw new IllegalArgumentException("Detectives must be have secret tickets!");
+            if (setup.graph.nodes().isEmpty()) throw new IllegalArgumentException("Graph is empty!");
+            if (isDetectivesLocation()) throw new IllegalArgumentException("Detectives are overlapping");
 
 
-		}
-		public boolean isDetectivesDouble() {
-			for (Player player : detectives) {
-				if(player.has(DOUBLE)) return true;
-			}
-			return false;
-		}
-
-		public boolean isDetectivesSecret(){
-			for (Player player : detectives) {
-				if(player.has(SECRET)) return true;
-			}
-			return false;
-		}
-
-		public boolean isDetectivesLocation(){
-			for (int i = 0; i < detectives.size(); i++) {
-				for (int j = i + 1; j < detectives.size(); j++) {
-					if(Objects.equals(detectives.get(i).location(), detectives.get(j).location()))
-						return true;
-				}
-			}
-			return false;
-		}
-
-		private Set<Move.SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
-
-			// TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
-			HashSet<Move.SingleMove> moves = new HashSet<>();
-			HashSet<Integer> destinations = new HashSet<>();
-			for (Player detective : detectives) {
-				destinations.add(detective.location());
-			}
-
-			for(int destination : setup.graph.adjacentNodes(source)) {
-				// TODO find out if destination is occupied by a detective
-				//  if the location is occupied, don't add to the collection of moves to return
-				if(destinations.contains(destination)) continue;
-				for(ScotlandYard.Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
-						// TODO find out if the player has the required tickets
-						//  if it does, construct a SingleMove and add it the collection of moves to return
-					if (player.isMrX()){
-						if(player.has(t.requiredTicket())){
-							moves.add(new Move.SingleMove(player.piece(),source, t.requiredTicket(), destination));
-						}
-					}
-						// TODO consider the rules of secret moves here
-						//  add moves to the destination via a secret ticket if there are any left with the player
-					if (player.isMrX() && player.has(SECRET)){
-						moves.add(new Move.SingleMove(player.piece(), player.location(), SECRET, destination));
-					}
-					if (player.isDetective()) {
-						if (player.hasAtLeast( t.requiredTicket(), 1)) {
-							moves.add(new Move.SingleMove(player.piece(), source, t.requiredTicket(), destination));
-						}
-					}
-				}
-			}
-			return moves;
-		}
-//		private  Set<Move.SingleMove> generateDetectiveMoves (List<Player> detectives) {
-//			HashSet<Move.SingleMove> detectiveMoves = new HashSet<>();
-//			for (Player detective : detectives){
-//				if(remaining.contains(detective.piece())){
-//					detectiveMoves.addAll(makeSingleMoves(setup, detectives, detective,detective.location()));
-//				}
-//			}
-//			return detectiveMoves;
-//		}
-		private Set<Move.SingleMove> generateDetectiveMoves(GameSetup setup, List<Player> detectives, Player player, int source){
-			HashSet<Move.SingleMove> detectiveSingleMoves = new HashSet<>();
-			HashSet<Integer> destinations = new HashSet<>();
-			for (Player detective : detectives) {
-				destinations.add(detective.location());
-			}
-			for(int destination : setup.graph.adjacentNodes(source)){
-				if(destinations.contains(destination)) continue;
-				for(ScotlandYard.Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of()) ) {
-						if(remaining.contains(player.piece())){
-							if(player.has( t.requiredTicket())) {
-								detectiveSingleMoves.add(new Move.SingleMove(player.piece(), player.location(), t.requiredTicket(), destination));
-							}
-						}
-				}
-
-			}
-			return detectiveSingleMoves;
-		}
-
-		private Set<Move.DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source){
-
-			// TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
-			HashSet<Move.DoubleMove> moves = new HashSet<>();
-			HashSet<Integer> destinations = new HashSet<>();
-			for (Player detective : detectives) {
-				destinations.add(detective.location());
-			}
-
-			for(int destination1 : setup.graph.adjacentNodes(source)) {
-				// TODO find out if destination is occupied by a detective
-				//  if the location is occupied, don't add to the collection of moves to return
-				if (!player.isMrX() || !player.has(DOUBLE) || setup.moves.size() - log.size() < 2) continue;
-				if(destinations.contains(destination1)) continue;
-				for(ScotlandYard.Transport t1 : setup.graph.edgeValueOrDefault(source, destination1, ImmutableSet.of()) ) {
-					// TODO find out if the player has the required tickets
-					//  if it does, construct a SingleMove and add it the collection of moves to return
-					if (player.isMrX() && (!player.has(t1.requiredTicket()) && (!player.has(SECRET)))) continue;
-					for(int destination2 : setup.graph.adjacentNodes(destination1)) {
-						if (destinations.contains(destination2)) continue;
-						for (ScotlandYard.Transport t2 : setup.graph.edgeValueOrDefault(destination1, destination2, ImmutableSet.of())){
-							if(player.isMrX()){
-								if(t1.requiredTicket().equals(t2.requiredTicket())){
-									if(player.hasAtLeast(t1.requiredTicket(), 2)){
-										moves.add(new Move.DoubleMove(player.piece(),player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
-									}
-								} else {
-									if (player.has(t1.requiredTicket()) && player.has(t2.requiredTicket())){
-										moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
-									}
-								}
-							}
-							if(player.isMrX() && player.has(t1.requiredTicket()) && player.has(SECRET)){
-								moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, SECRET, destination2));
-							}
-							if(player.isMrX() && player.has(t2.requiredTicket()) && player.has(SECRET)){
-								moves.add(new Move.DoubleMove(player.piece(), player.location(),SECRET, destination1, t2.requiredTicket(), destination2));
-							}
-							if(player.isMrX() && player.hasAtLeast(SECRET, 2)){
-								moves.add(new Move.DoubleMove(player.piece(), player.location(),SECRET, destination1, SECRET, destination2));
-							}
-						}
-					}
-				}
-			}
-			return moves;
-		}
-
-
-		@Override public GameSetup getSetup() {  return setup; }
-
-		@Override  public ImmutableSet<Piece> getPlayers() {
-			return ImmutableSet.<Piece>builder()
-					.addAll(remaining)
-					.addAll(detectives.stream().map(player -> player.piece()).toList())
-					.build();
-
-		 }
-
-		@Nonnull
-		@Override
-		public Optional<Integer> getDetectiveLocation(Piece.Detective detective) {
-			for (Player player : detectives) {
-				if ((player.piece()) == detective)
-					return Optional.of(player.location());
-			}
-			return Optional.empty();
-		}
-
-		@Nonnull
-		@Override
-		public Optional<TicketBoard> getPlayerTickets(Piece piece) {
-			if(mrX.piece() == piece) {
-				return Optional.of(new TicketBoard() {
-					@Override
-					public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
-						return mrX.tickets().getOrDefault(ticket, 0);
-					}
-				});
-			}
-			for (Player player : detectives) {
-				if ((player.piece()) == piece)
-					return Optional.of(new TicketBoard() {
-							@Override
-							public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
-								return player.tickets().getOrDefault(ticket, 0);
-							}
-						});
-				    }
-			    return Optional.empty();
         }
-		@Nonnull
-		@Override
-		public ImmutableList<LogEntry> getMrXTravelLog() {
-			return log;
-		}
 
-		@Nonnull
-		@Override
-		public ImmutableSet<Piece> getWinner() {
-			Set<Integer> detectiveLocations = new HashSet<>();
-			for (Player detective : detectives) {
-				detectiveLocations.add(detective.location());
-			}
-			Set<Piece> detectivePieces = new HashSet<>();
-			for(int adjacentNode: setup.graph.adjacentNodes(mrX.location())){
-				if(detectiveLocations.contains(adjacentNode)){
-					for (Player detective: detectives) {
-						detectivePieces.add(detective.piece());
-					}
-					return ImmutableSet.copyOf(detectivePieces);
-				}
-			}
-				for(Player detective : detectives) {
-					if(detective.location() == mrX.location())
-						return ImmutableSet.copyOf(detectivePieces);
-				}                                                   
+        public boolean isDetectivesDouble() {
+            for (Player player : detectives) {
+                if (player.has(DOUBLE)) return true;
+            }
+            return false;
+        }
 
-			if(log.size() == setup.graph.nodes().size()){
-				return ImmutableSet.of(mrX.piece());
-			}
+        public boolean isDetectivesSecret() {
+            for (Player player : detectives) {
+                if (player.has(SECRET)) return true;
+            }
+            return false;
+        }
 
-			return ImmutableSet.of();
-		}
+        public boolean isDetectivesLocation() {
+            for (int i = 0; i < detectives.size(); i++) {
+                for (int j = i + 1; j < detectives.size(); j++) {
+                    if (Objects.equals(detectives.get(i).location(), detectives.get(j).location()))
+                        return true;
+                }
+            }
+            return false;
+        }
 
-		@Nonnull
-		@Override
-		public ImmutableSet<Move> getAvailableMoves() {
-			return moves;
-		}
+        private Set<Move.SingleMove> makeSingleMoves(GameSetup setup, List<Player> detectives, Player player, int source) {
 
-		public ImmutableSet<Piece> getDetectives() {
-			ImmutableSet.Builder<Piece> builder = ImmutableSet.builder();
-					for (Player player : detectives) {
-						builder.add(player.piece());
-					}
-					return builder.build();
-		}
+            // TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
+            HashSet<Move.SingleMove> moves = new HashSet<>();
+            HashSet<Integer> destinations = new HashSet<>();
+            for (Player detective : detectives) {
+                destinations.add(detective.location());
+            }
 
-		@Override public GameState advance(Move move) {
-			if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
-			return move.accept(new Move.Visitor<GameState>() {
+            for (int destination : setup.graph.adjacentNodes(source)) {
+                // TODO find out if destination is occupied by a detective
+                //  if the location is occupied, don't add to the collection of moves to return
+                if (destinations.contains(destination)) continue;
+                for (ScotlandYard.Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of())) {
+                    // TODO find out if the player has the required tickets
+                    //  if it does, construct a SingleMove and add it the collection of moves to return
+                    if (player.isMrX()) {
+                        if (player.has(t.requiredTicket())) {
+                            moves.add(new Move.SingleMove(player.piece(), source, t.requiredTicket(), destination));
+                        }
+                    }
+                    // TODO consider the rules of secret moves here
+                    //  add moves to the destination via a secret ticket if there are any left with the player
+                    if (player.isMrX() && player.has(SECRET)) {
+                        moves.add(new Move.SingleMove(player.piece(), player.location(), SECRET, destination));
+                    }
+                    if (player.isDetective()) {
+                        if (player.hasAtLeast(t.requiredTicket(), 1)) {
+                            moves.add(new Move.SingleMove(player.piece(), source, t.requiredTicket(), destination));
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
 
-				@Override
-				public GameState visit(Move.SingleMove move) {
-					if (move.commencedBy().equals(mrX.piece())){
-						// Use ticket and move to new location
-						Player updatedMrX = mrX.use(move.ticket).at(move.destination);
-						// Update travel log for reveal and hidden
-						ImmutableList<LogEntry> updatedLog;
-						int currentRound = log.size();
-						if (setup.moves.get(currentRound)){
-							updatedLog = new ImmutableList.Builder<LogEntry>()
-									.addAll(log)
-							        .add(LogEntry.reveal(move.ticket, move.destination))
-									.build();
-						} else{
-							updatedLog = new ImmutableList.Builder<LogEntry>()
-									.addAll(log)
-									.add(LogEntry.hidden(move.ticket))
-									.build();
-						}
-						return new MyGameState(setup, getDetectives(), updatedLog, updatedMrX, detectives);
-					}
-					for(int i = 0; i < detectives.size(); i++){
-						if(move.commencedBy().equals(detectives.get(i).piece())){
-							// Use ticket and move detective to new location
-							Player updatedDetective = detectives.get(i).use(move.ticket).at(move.destination);
-							// Give ticket to mrX
-							Player updatedMrX = mrX.give(move.ticket);
-							Set<Piece> updatedRemaining = new HashSet<>(remaining);
-							updatedRemaining.remove(move.commencedBy());
-							// when all detective move change to mrX turn
-							if (updatedRemaining.isEmpty()) {
-								updatedRemaining.add(mrX.piece());
-							}
-							List<Player> updatedDetectives = new ArrayList<>(detectives);
-							updatedDetectives.set(i, updatedDetective);
-						return new MyGameState(setup, ImmutableSet.copyOf(updatedRemaining), log, updatedMrX, updatedDetectives);
-						}
-					}
-					throw new IllegalArgumentException("Illegal move: " + move);
-				}
+        private Set<Move.SingleMove> generateDetectiveMoves(GameSetup setup, List<Player> detectives, Player player, int source) {
+            HashSet<Move.SingleMove> detectiveSingleMoves = new HashSet<>();
+            HashSet<Integer> destinations = new HashSet<>();
+            for (Player detective : detectives) {
+                destinations.add(detective.location());
+            }
+            for (int destination : setup.graph.adjacentNodes(source)) {
+                if (destinations.contains(destination)) continue;
+                for (ScotlandYard.Transport t : setup.graph.edgeValueOrDefault(source, destination, ImmutableSet.of())) {
+                        if (player.has(t.requiredTicket())) {
+                            detectiveSingleMoves.add(new Move.SingleMove(player.piece(), player.location(), t.requiredTicket(), destination));
+                        }
+                }
 
-				@Override
-				public GameState visit(Move.DoubleMove move) {
-					Player updatedMrX = mrX.use(move.ticket1).use(move.ticket2).use(DOUBLE);
-					updatedMrX = updatedMrX.at(move.destination1).at(move.destination2);
-					ImmutableList<LogEntry> updatedLog;
-					int currentRound = log.size();
-					ImmutableList.Builder<LogEntry> builder = new ImmutableList.Builder<>();
-					builder.addAll(log);
-					if (setup.moves.get(currentRound)){
-						builder.add(LogEntry.reveal(move.ticket1, move.destination1));
-					} else{
-						builder.add(LogEntry.hidden(move.ticket1));
-					}
-					if (setup.moves.get(currentRound + 1)){
-						builder.add(LogEntry.reveal(move.ticket2, move.destination2));
-					} else{
-						builder.add(LogEntry.hidden(move.ticket2));
-					}
-					updatedLog = builder.build();
-					return new MyGameState(setup, getDetectives(), updatedLog, updatedMrX, detectives);
-				}
-			});
-		}
-	}
+            }
+            return detectiveSingleMoves;
+        }
 
-	@Nonnull @Override public GameState build(
-			GameSetup setup,
-			Player mrX,
-			ImmutableList<Player> detectives) {
-		return new MyGameState(setup, ImmutableSet.of(Piece.MrX.MRX), ImmutableList.of(), mrX, detectives);
+        private Set<Move.DoubleMove> makeDoubleMoves(GameSetup setup, List<Player> detectives, Player player, int source) {
 
-	}
+            // TODO create an empty collection of some sort, say, HashSet, to store all the SingleMove we generate
+            HashSet<Move.DoubleMove> moves = new HashSet<>();
+            HashSet<Integer> destinations = new HashSet<>();
+            for (Player detective : detectives) {
+                destinations.add(detective.location());
+            }
+
+            for (int destination1 : setup.graph.adjacentNodes(source)) {
+                // TODO find out if destination is occupied by a detective
+                //  if the location is occupied, don't add to the collection of moves to return
+                if (!player.isMrX() || !player.has(DOUBLE) || setup.moves.size() - log.size() < 2) continue;
+                if (destinations.contains(destination1)) continue;
+                for (ScotlandYard.Transport t1 : setup.graph.edgeValueOrDefault(source, destination1, ImmutableSet.of())) {
+                    // TODO find out if the player has the required tickets
+                    //  if it does, construct a SingleMove and add it the collection of moves to return
+                    if (player.isMrX() && (!player.has(t1.requiredTicket()) && (!player.has(SECRET)))) continue;
+                    for (int destination2 : setup.graph.adjacentNodes(destination1)) {
+                        if (destinations.contains(destination2)) continue;
+                        for (ScotlandYard.Transport t2 : setup.graph.edgeValueOrDefault(destination1, destination2, ImmutableSet.of())) {
+                            if (player.isMrX()) {
+                                if (t1.requiredTicket().equals(t2.requiredTicket())) {
+                                    if (player.hasAtLeast(t1.requiredTicket(), 2)) {
+                                        moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+                                    }
+                                } else {
+                                    if (player.has(t1.requiredTicket()) && player.has(t2.requiredTicket())) {
+                                        moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, t2.requiredTicket(), destination2));
+                                    }
+                                }
+                            }
+                            if (player.isMrX() && player.has(t1.requiredTicket()) && player.has(SECRET)) {
+                                moves.add(new Move.DoubleMove(player.piece(), player.location(), t1.requiredTicket(), destination1, SECRET, destination2));
+                            }
+                            if (player.isMrX() && player.has(t2.requiredTicket()) && player.has(SECRET)) {
+                                moves.add(new Move.DoubleMove(player.piece(), player.location(), SECRET, destination1, t2.requiredTicket(), destination2));
+                            }
+                            if (player.isMrX() && player.hasAtLeast(SECRET, 2)) {
+                                moves.add(new Move.DoubleMove(player.piece(), player.location(), SECRET, destination1, SECRET, destination2));
+                            }
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+
+
+        @Override
+        public GameSetup getSetup() {
+            return setup;
+        }
+
+        @Override
+        public ImmutableSet<Piece> getPlayers() {
+            return ImmutableSet.<Piece>builder()
+                    .addAll(remaining)
+                    .addAll(detectives.stream().map(player -> player.piece()).toList())
+                    .build();
+
+        }
+
+        @Nonnull
+        @Override
+        public Optional<Integer> getDetectiveLocation(Piece.Detective detective) {
+            for (Player player : detectives) {
+                if ((player.piece()) == detective)
+                    return Optional.of(player.location());
+            }
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public Optional<TicketBoard> getPlayerTickets(Piece piece) {
+            if (mrX.piece() == piece) {
+                return Optional.of(new TicketBoard() {
+                    @Override
+                    public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
+                        return mrX.tickets().getOrDefault(ticket, 0);
+                    }
+                });
+            }
+            for (Player player : detectives) {
+                if ((player.piece()) == piece)
+                    return Optional.of(new TicketBoard() {
+                        @Override
+                        public int getCount(@Nonnull ScotlandYard.Ticket ticket) {
+                            return player.tickets().getOrDefault(ticket, 0);
+                        }
+                    });
+            }
+            return Optional.empty();
+        }
+
+        @Nonnull
+        @Override
+        public ImmutableList<LogEntry> getMrXTravelLog() {
+            return log;
+        }
+
+        @Nonnull
+        @Override
+        public ImmutableSet<Piece> getWinner() {
+            Set<Integer> detectiveLocations = new HashSet<>();
+            for (Player detective : detectives) {
+                detectiveLocations.add(detective.location());
+            }
+            for (Player detective : detectives) {
+                if (detective.location() == mrX.location()) {
+                    moves = ImmutableSet.of();
+                    return getDetectives();
+                }
+            }
+            if(makeSingleMoves(setup, detectives, mrX, mrX.location()).isEmpty()){
+                return getDetectives();
+            }
+            if (log.size() == setup.moves.size() && remaining.contains(mrX.piece())){
+                moves = ImmutableSet.of();
+                return ImmutableSet.of(mrX.piece());
+            }
+            boolean detectiveStuck = true;
+            for (Player detective : detectives) {
+                if (!generateDetectiveMoves(setup, detectives, detective, detective.location()).isEmpty()) {
+                    detectiveStuck = false;
+                }
+            }
+            if (detectiveStuck) {
+                moves = ImmutableSet.of();
+                return ImmutableSet.of(mrX.piece());
+            }
+            return ImmutableSet.of();
+        }
+
+        @Nonnull
+        @Override
+        public ImmutableSet<Move> getAvailableMoves() {
+            return moves;
+        }
+
+        public ImmutableSet<Piece> getDetectives() {
+            ImmutableSet.Builder<Piece> builder = ImmutableSet.builder();
+            for (Player player : detectives) {
+                builder.add(player.piece());
+            }
+            return builder.build();
+        }
+
+        @Override
+        public GameState advance(Move move) {
+            if (!moves.contains(move)) throw new IllegalArgumentException("Illegal move: " + move);
+            return move.accept(new Move.Visitor<GameState>() {
+
+                @Override
+                public GameState visit(Move.SingleMove move) {
+                    if (move.commencedBy().equals(mrX.piece())) {
+                        // Use ticket and move to new location
+                        Player updatedMrX = mrX.use(move.ticket).at(move.destination);
+                        // Update travel log for reveal and hidden
+                        ImmutableList<LogEntry> updatedLog;
+                        int currentRound = log.size();
+                        if (setup.moves.get(currentRound)) {
+                            updatedLog = new ImmutableList.Builder<LogEntry>()
+                                    .addAll(log)
+                                    .add(LogEntry.reveal(move.ticket, move.destination))
+                                    .build();
+                        } else {
+                            updatedLog = new ImmutableList.Builder<LogEntry>()
+                                    .addAll(log)
+                                    .add(LogEntry.hidden(move.ticket))
+                                    .build();
+                        }
+                        Set<Piece> updatedRemaining = new HashSet<>();
+                        for (Player detective : detectives) {
+                            if(!generateDetectiveMoves(setup, detectives, detective, detective.location()).isEmpty()) {
+                                updatedRemaining.add(detective.piece());
+                            }
+                        }
+                        return new MyGameState(setup, ImmutableSet.copyOf(updatedRemaining), updatedLog, updatedMrX, detectives);
+                    }
+                    for (int i = 0; i < detectives.size(); i++) {
+                        if (move.commencedBy().equals(detectives.get(i).piece())) {
+                            // Use ticket and move detective to new location
+                            Player updatedDetective = detectives.get(i).use(move.ticket).at(move.destination);
+                            // Give ticket to mrX
+                            Player updatedMrX = mrX.give(move.ticket);
+                            Set<Piece> updatedRemaining = new HashSet<>(remaining);
+                            updatedRemaining.remove(move.commencedBy());
+                            // when all detective move change to mrX turn
+                            if (updatedRemaining.isEmpty()) {
+                                updatedRemaining.add(mrX.piece());
+                            }
+                            List<Player> updatedDetectives = new ArrayList<>(detectives);
+                            updatedDetectives.set(i, updatedDetective);
+                            return new MyGameState(setup, ImmutableSet.copyOf(updatedRemaining), log, updatedMrX, updatedDetectives);
+                        }
+                    }
+                    throw new IllegalArgumentException("Illegal move: " + move);
+                }
+
+                @Override
+                public GameState visit(Move.DoubleMove move) {
+                    Player updatedMrX = mrX.use(move.ticket1).use(move.ticket2).use(DOUBLE);
+                    updatedMrX = updatedMrX.at(move.destination1).at(move.destination2);
+                    ImmutableList<LogEntry> updatedLog;
+                    int currentRound = log.size();
+                    ImmutableList.Builder<LogEntry> builder = new ImmutableList.Builder<>();
+                    builder.addAll(log);
+                    if (setup.moves.get(currentRound)) {
+                        builder.add(LogEntry.reveal(move.ticket1, move.destination1));
+                    } else {
+                        builder.add(LogEntry.hidden(move.ticket1));
+                    }
+                    if (setup.moves.get(currentRound + 1)) {
+                        builder.add(LogEntry.reveal(move.ticket2, move.destination2));
+                    } else {
+                        builder.add(LogEntry.hidden(move.ticket2));
+                    }
+                    updatedLog = builder.build();
+                    return new MyGameState(setup, getDetectives(), updatedLog, updatedMrX, detectives);
+                }
+            });
+        }
+    }
+
+    @Nonnull
+    @Override
+    public GameState build(
+            GameSetup setup,
+            Player mrX,
+            ImmutableList<Player> detectives) {
+        return new MyGameState(setup, ImmutableSet.of(Piece.MrX.MRX), ImmutableList.of(), mrX, detectives);
+
+    }
 
 }
