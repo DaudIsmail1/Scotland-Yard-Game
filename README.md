@@ -5,6 +5,9 @@
 
 A Java implementation of the Scotland Yard board game, focused on game state management, player moves and tracking. This project demonstrates skills in object-oriented programming, algorithmic logic, and design patterns.
 
+![UI of Scotland Yard game](images/UI of Scotland Yard.png)
+
+
 ## Features
 - **Dynamic Game Management:** Tracks all players, their locations, tickets, and turns throughout the game.  
 - **Flexible Move Handling:** Supports different types of moves for detectives and Mr. X, including hidden moves.  
