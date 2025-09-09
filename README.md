@@ -21,5 +21,11 @@ A Java implementation of the Scotland Yard board game, focused on game state man
 - **Immutable state updates:** Ensures game states are correctly updated without side effects.
 - **Design Patterns:** Utilizes the Visitor pattern to process different move types cleanly and efficiently.
 
+## Skills Demonstrated
+- Java programming (OOP, interfaces, inheritance)
+- Design patterns (Visitor pattern, Observer Pattern)
+- Algorithmic thinking for game state management and move validation
+- Testing and verification of complex game logic
+
 
 
