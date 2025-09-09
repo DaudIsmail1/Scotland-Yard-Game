@@ -1,4 +1,7 @@
-##Scotland Yard Game
+# Scotland Yard Game
+
+## Overview
+A Java implementation of the Scotland Yard board game, focused on game state management, player moves and tracking. This project demonstrates skills in object-oriented programming, algorithmic logic, and design patterns.
 
 
 
