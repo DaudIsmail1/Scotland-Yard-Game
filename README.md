@@ -5,7 +5,7 @@
 
 A Java implementation of the Scotland Yard board game, focused on game state management, player moves and tracking. This project demonstrates skills in object-oriented programming, algorithmic logic, and design patterns.
 
-![UI of Scotland Yard game](images/UI of Scotland Yard.png)
+![UI of Scotland Yard game](images/UIofScotlandYard.png)
 
 
 ## Features
